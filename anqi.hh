@@ -2,31 +2,33 @@
 #define ANQI
 
 // (color)
-//  0 = ç´…æ–¹ (å¤§å¯«å­—æ¯)
-//  1 = é»‘æ–¹ (å°å¯«å­—æ¯)
-// -1 = éƒ½ä¸æ˜¯
+//  0 = ¬õ¤è (¤j¼g¦r¥À)
+//  1 = ¶Â¤è (¤p¼g¦r¥À)
+// -1 = ³£¤£¬O
 typedef int CLR;
 
 // (level)
 enum LVL {
-	LVL_K=0, // å°‡å¸¥ King
-	LVL_G=1, // å£«å£« Guard
-	LVL_M=2, // ç›¸åƒ Minister
-	LVL_R=3, // è»Šè»Š Rook     // BIG5
-	LVL_N=4, // é¦¬é¦¬ kNight
-	LVL_C=5, // åŒ…ç‚® Cannon
-	LVL_P=6  // å’å…µ Pawn
+	LVL_K=0, // ±N«Ó King
+	LVL_G=1, // ¥K¤h Guard
+	LVL_M=2, // ¬Û¶H Minister
+	LVL_R=3, // ¨®? Rook     // BIG5
+	LVL_N=4, // °¨ØX kNight
+	LVL_C=5, // ¥]¬¶ Cannon
+	LVL_P=6  // ¨ò§L Pawn
 };
 
 enum FIN {
-	FIN_K= 0 /* 'K' å¸¥ */ , FIN_k= 7 /* 'k' å°‡ */ , FIN_X=14 /* 'X' æœªç¿» */ ,
-	FIN_G= 1 /* 'G' ä»• */ , FIN_g= 8 /* 'g' å£« */ , FIN_E=15 /* '-' ç©ºæ ¼ */ ,
-	FIN_M= 2 /* 'M' ç›¸ */ , FIN_m= 9 /* 'm' è±¡ */ ,
-	FIN_R= 3 /* 'R' ä¿¥ */ , FIN_r=10 /* 'r' è»Š */ ,
-	FIN_N= 4 /* 'N' å‚Œ */ , FIN_n=11 /* 'n' é¦¬ */ ,
-	FIN_C= 5 /* 'C' ç‚® */ , FIN_c=12 /* 'c' åŒ… */ ,
-	FIN_P= 6 /* 'P' å…µ */ , FIN_p=13 /* 'p' å’ */
+	FIN_K= 0 /* 'K' «Ó */ , FIN_k= 7 /* 'k' ±N */ , FIN_X=14 /* 'X' ¥¼Â½ */ ,
+	FIN_G= 1 /* 'G' ¥K */ , FIN_g= 8 /* 'g' ¤h */ , FIN_E=15 /* '-' ªÅ®æ */ ,
+	FIN_M= 2 /* 'M' ¬Û */ , FIN_m= 9 /* 'm' ¶H */ ,
+	FIN_R= 3 /* 'R' ? */ , FIN_r=10 /* 'r' ¨® */ ,
+	FIN_N= 4 /* 'N' ØX */ , FIN_n=11 /* 'n' °¨ */ ,
+	FIN_C= 5 /* 'C' ¬¶ */ , FIN_c=12 /* 'c' ¥] */ ,
+	FIN_P= 6 /* 'P' §L */ , FIN_p=13 /* 'p' ¨ò */
 };
+
+
 
 
 
@@ -42,9 +44,9 @@ enum FIN {
 typedef int POS;
 
 struct MOV {
-	POS st; // èµ·é»
-	POS ed; // çµ‚é» // è‹¥ ed == st è¡¨ç¤ºæ˜¯ç¿»å­
-
+	POS st; // °_ÂI
+	POS ed; // ²×ÂI // ??ed == st ªí¥Ü¬OÂ½¤l
+	int priority;
 	MOV() {}
 	MOV(POS s,POS e):st(s),ed(e) {}
 
@@ -53,35 +55,60 @@ struct MOV {
 };
 
 struct MOVLST {
-	int num;     // èµ°æ³•æ•¸ (ç§»å‹• + åƒå­ï¼Œä¸åŒ…æ‹¬ç¿»å­)
+	int num;     // ¨«ªk¼Æ(²¾°Ê+¦Y¤l¡A¤£¥]¬AÂ½¤l)
 	MOV mov[68];
 };
 
 struct BOARD {
-	CLR who;     // ç¾åœ¨è¼ªåˆ°å“ªä¸€æ–¹ä¸‹
-	FIN fin[32]; // å„å€‹ä½ç½®ä¸Šé¢æ“ºäº†ä»€éº¼
-	int cnt[14]; // å„ç¨®æ£‹å­çš„æœªç¿»é–‹æ•¸é‡
-	// int dark;    // æœªç¿»é–‹çš„å­çš„æ•¸ç›®
-	// int position[32];  // æ¯å€‹å­çš„ä½ç½®
-	// int current[34];   // ç¾åœ¨æ£‹ç›¤ä¸Šæœ‰é‚£äº›å­
 
-	void NewGame();              // æ–°é–‹éŠæˆ²
-	int  LoadGame(const char*);  // è¼‰å…¥éŠæˆ²ä¸¦å‚³å›æ™‚é™(å–®ä½ï¼šç§’)
-	void Display() const;        // é¡¯ç¤ºåˆ°stderrä¸Š
-	int  MoveGen(MOVLST&) const; // åˆ—å‡ºæ‰€æœ‰èµ°æ³•(èµ°å­+åƒå­ã€‚ä¸åŒ…æ‹¬ç¿»å­)
-	                             // å›å‚³èµ°æ³•æ•¸é‡
-	bool ChkLose() const;        // æª¢æŸ¥ç•¶å‰ç©å®¶(who)æ˜¯å¦è¼¸äº†
-	bool ChkValid(MOV) const;    // æª¢æŸ¥æ˜¯å¦ç‚ºåˆæ³•èµ°æ³•
-	void Flip(POS,FIN=FIN_X);    // ç¿»å­
-	void Move(MOV);              // ç§»å‹• or åƒå­
+	CLR who;     // ²{¦b½ü¨ì­ş¤@¤è¤U
+	FIN fin[32]; // ¦U­Ó¦ì¸m¤W­±Â\¤F¤°»ò
+	int cnt[14]; // ¦UºØ´Ñ¤l©|¥¼Â½¶}ªº¼Æ¶q
+
+	CLR self;    // ¦Û¤vªºÃC¦â
+	int dark;    // ½L­±·t¤lªº¼Æ¶q
+	int position[32];  // ¬ö¿ı¨C­Ó¤l©Ò¦b¦ì¸m
+	int current[34];   // ¬ö¿ı²{¦b½L­±¤W¦³¨º¨Ç¤l
+	int onboard[14]; // °O¿ı¦UºØ´Ñ¤l¦³¦h¤Ö­Ó¦b´Ñ½L¤W
+	int remain[14];  // °O¿ı¦UºØ´Ñ¤lÁÙ¦³¦h¤Ö­Ó
+	int zob_key; // hash key ªÅ½L­±¬°¹s
+
+	void NewGame();                // ¶}¤ß¹CÀ¸
+	int  LoadGame(const char*);    // ¸ü¤J¹CÀ¸¨Ã¶Ç¦^®É­­(³æ¦ì¡G¬í)
+	void Display() const;         // Åã¥Ü¨ìstderr¤W
+	int  MoveGen(MOVLST&) const;  // ¦C¥X©Ò¦³¨«ªk(¨«¤l+¦Y¤l¡A¤£¥]¬AÂ½¤l)
+	                            // ¦^¶Ç¨«ªk¼Æ¶q
+	bool ChkLose() const;        // ÀË¬d·í«eª±®a(who)¬O§_¿é¤F
+	bool ChkValid(MOV) const;    // ÀË¬d¬O§_¬°¦Xªk¨«¨B
+	void Flip(POS,FIN=FIN_X);    // Â½¤l
+	void Move(MOV);             // ²¾°Ê or ¦Y¤l
 	void DoMove(MOV m, FIN f) ;
+	//int evalBoard() const;
 	void Init(int Board[32], int Piece[14], int Color);
 	void Init(char Board[32], int Piece[14], int Color);
 };
 
-CLR  GetColor(FIN);    // ç®—å‡ºæ£‹å­çš„é¡è‰²
-LVL  GetLevel(FIN);    // ç®—å‡ºæ£‹å­çš„éšç´š
-bool ChkEats(FIN,FIN); // åˆ¤æ–·ç¬¬ä¸€å€‹æ£‹å­èƒ½å¦åƒç¬¬äºŒå€‹æ£‹å­
-void Output (MOV);     // å°‡ç­”æ¡ˆå‚³çµ¦GUI
+struct HASH_ENTRY{
+	bool used = false;
+	unsigned zob_key;
+	int depth;
+
+	bool exact = false;
+	int value;
+	int player;
+	MOV best_move;
+
+};
+
+extern unsigned int zob[15][32];
+extern unsigned int zob_player;
+
+CLR  GetColor(FIN);    // ºâ¥X´Ñ¤lªºÃC¦â
+LVL  GetLevel(FIN);    // ºâ¥X´Ñ¤lªº¶¥¯Å
+bool ChkEats(FIN,FIN); // §PÂ_²Ä¤@­Ó´Ñ¤l¯à§_¦Y²Ä¤G­Ó´Ñ¤l
+void Output (MOV);     // ±Nµª®×¶Çµ¹Gui
+
+FIN type2fin(int type);
+FIN chess2fin(char chess);
 
 #endif

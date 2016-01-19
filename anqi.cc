@@ -19,9 +19,9 @@
 static const char *tbl="KGMRNCPkgmrncpX-";
 
 static const char *nam[16]={
-	"å¸¥","ä»•","ç›¸","ä¿¥","å‚Œ","ç‚®","å…µ",
-	"å°‡","å£«","è±¡","è»Š","é¦¬","åŒ…","å’",
-	"ï¼¯","ã€€"
+	"«Ó","¥K","¬Û","ÚÏ","ØX","¬¶","§L",
+	"±N","¤h","¶H","¨®","°¨","¯¥","¨ò",
+	"¢İ","¡@"
 };
 
 static const POS ADJ[32][4]={
@@ -49,22 +49,22 @@ bool ChkEats(FIN fa,FIN fb) {
 	if(fb==FIN_X)return false;
 	if(fb==FIN_E)return true ;
 
-	// æª¢æŸ¥å…©å­æ˜¯å¦åŒé¡è‰²
+	// ÀË¬d¨â¤l¬O§_¦PÃC¦â
 	if(GetColor(fb)==GetColor(fa))return false;
 
 	// 
 	const LVL la=GetLevel(fa);
 	
-	// æª¢æŸ¥åƒäººçš„æ˜¯ä¸æ˜¯ç ²
+	// ÀË¬d¦Y¤Hªº¬O¤£¬O¬¶
 	if(la==LVL_C)return true ;
 
 
 	const LVL lb=GetLevel(fb);
 	
-	// å¦‚æœåƒäººçš„æ˜¯ç‹ æª¢æŸ¥è¢«åƒçš„è¦ä¸æ˜¯å°å…µ
+	// ¦pªG¦Y¤Hªº¬O¤ı ÀË¬d³Q¦Yªº­n¤£¬O¤p§L
 	if(la==LVL_K)return lb!=LVL_P;
 
-	// å¦‚æœåƒäººçš„æ˜¯å°å…µ æª¢æŸ¥è¢«åƒè¦æ˜¯ç‹æˆ–å°å…µ
+	// ¦pªG¦Y¤Hªº¬O¤p§L ÀË¬d³Q¦Y­n¬O¤ı©Î¤p§L
 	if(la==LVL_P)return lb==LVL_P||lb==LVL_K;
 
 	return la<=lb;
@@ -116,8 +116,9 @@ static POS mkpos(int x,int y) {
 }
 
 void BOARD::Init(int Board[32], int Piece[14], int Color) {
+	printf("Init with int\n");
     for (int i = 0 ; i < 14; ++i) {
-	cnt[i] = Piece[i];
+		cnt[i] = Piece[i];
     }
     for (int i = 0 ; i < 32; ++i) {
 	switch(Board[i]) {
@@ -143,30 +144,100 @@ void BOARD::Init(int Board[32], int Piece[14], int Color) {
 }
 
 void BOARD::Init(char Board[32], int Piece[14], int Color) {
+	// °²³]¤@¶}©l¥ş³¡¬OªÅ®æ
+	dark = 0; 
+	zob_key = 0;
+	
     for (int i = 0 ; i < 14; ++i) {
 		cnt[i] = Piece[i];
+		remain[i] = Piece[i];
+		onboard[i] = 0;
     }
     for (int i = 0 ; i < 32; ++i) {
 		switch(Board[i]) {
-		    case '-': fin[i] = FIN_E;break;
-		    case 'K': fin[i] = FIN_K;cnt[FIN_K]--;break;
-		    case 'G': fin[i] = FIN_G;cnt[FIN_G]--;break;
-		    case 'M': fin[i] = FIN_M;cnt[FIN_M]--;break;
-		    case 'R': fin[i] = FIN_R;cnt[FIN_R]--;break;
-		    case 'N': fin[i] = FIN_N;cnt[FIN_N]--;break;
-		    case 'C': fin[i] = FIN_C;cnt[FIN_C]--;break;
-		    case 'P': fin[i] = FIN_P;cnt[FIN_P]--;break;
-		    case 'X': fin[i] = FIN_X;break;
-		    case 'k': fin[i] = FIN_k;cnt[FIN_k]--;break;
-		    case 'g': fin[i] = FIN_g;cnt[FIN_g]--;break;
-		    case 'm': fin[i] = FIN_m;cnt[FIN_m]--;break;
-		    case 'r': fin[i] = FIN_r;cnt[FIN_r]--;break;
-		    case 'n': fin[i] = FIN_n;cnt[FIN_n]--;break;
-		    case 'c': fin[i] = FIN_c;cnt[FIN_c]--;break;
-		    case 'p': fin[i] = FIN_p;cnt[FIN_p]--;break;
+		case '-': // ªÅ®æ
+			fin[i] = FIN_E;
+			break;
+		case 'K': 
+			fin[i] = FIN_K;
+			cnt[FIN_K]--;
+			zob_key ^= zob[FIN_K][i];
+			break;
+		case 'G': 
+			fin[i] = FIN_G;
+			cnt[FIN_G]--;
+			zob_key ^= zob[FIN_G][i];
+			break;
+		case 'M': 
+			fin[i] = FIN_M;
+			cnt[FIN_M]--;
+			zob_key ^= zob[FIN_M][i];
+			break;
+		case 'R': 
+			fin[i] = FIN_R;
+			cnt[FIN_R]--;
+			zob_key ^= zob[FIN_R][i];
+			break;
+		case 'N': 
+			fin[i] = FIN_N;
+			cnt[FIN_N]--;
+			zob_key ^= zob[FIN_N][i];
+			break;
+		case 'C': 
+			fin[i] = FIN_C;
+			cnt[FIN_C]--;
+			zob_key ^= zob[FIN_C][i];
+			break;
+		case 'P': 
+			fin[i] = FIN_P;
+			cnt[FIN_P]--;
+			zob_key ^= zob[FIN_P][i];
+			break;
+		case 'X': // ·t¤l
+			fin[i] = FIN_X;
+			dark++;
+			zob_key ^= zob[FIN_X][i];
+			break;
+		case 'k': 
+			fin[i] = FIN_k;
+			cnt[FIN_k]--;
+			zob_key ^= zob[FIN_k][i];
+			break;
+		case 'g': 
+			fin[i] = FIN_g;
+			cnt[FIN_g]--;
+			zob_key ^= zob[FIN_g][i];
+			break;
+		case 'm': 
+			fin[i] = FIN_m;
+			cnt[FIN_m]--;
+			zob_key ^= zob[FIN_m][i];
+			break;
+		case 'r': 
+			fin[i] = FIN_r;
+			cnt[FIN_r]--;
+			zob_key ^= zob[FIN_r][i];
+			break;
+		case 'n': 
+			fin[i] = FIN_n;
+			cnt[FIN_n]--;
+			zob_key ^= zob[FIN_n][i];
+			break;
+		case 'c': 
+			fin[i] = FIN_c;
+			cnt[FIN_c]--;
+			zob_key ^= zob[FIN_c][i];
+			break;
+		case 'p': 
+			fin[i] = FIN_p;
+			cnt[FIN_p]--;
+			zob_key ^= zob[FIN_p][i];
+			break;
 		}
     }
+	
     who = Color;
+	self = Color;
 }
 
 int BOARD::LoadGame(const char *fn) {
@@ -178,7 +249,8 @@ int BOARD::LoadGame(const char *fn) {
 	while(fgetc(fp)!='\n');
 
 	fscanf(fp," %*c");
-	for(int i=0;i<14;i++)fscanf(fp,"%d",cnt+i);
+	for(int i=0;i<14;i++)
+		fscanf(fp,"%d",cnt+i);
 
 	for(int i=0;i<8;i++) {
 		fscanf(fp," %*c");
@@ -235,25 +307,25 @@ void BOARD::Display() const {
 #ifdef _WINDOWS
 			SetConsoleTextAttribute(hErr,7);
 #endif
-			fputs("  Â½Ã¼Â¨Ã¬ ",stderr);
+			fputs("  ½ü¨ì ",stderr);
 			if(who==0) {
 #ifdef _WINDOWS
 				SetConsoleTextAttribute(hErr,12);
 #endif
-				fputs("Â¬ÃµÂ¤Ã¨",stderr);
+				fputs("¬õ¤è",stderr);
 			} else if(who==1) {
 #ifdef _WINDOWS
 				SetConsoleTextAttribute(hErr,10);
 #endif
-				fputs("Â¶Ã‚Â¤Ã¨",stderr);
+				fputs("¶Â¤è",stderr);
 			} else {
-				fputs("Â¡HÂ¡H",stderr);
+				fputs("¡H¡H",stderr);
 			}
 		} else if(i==1) {
 #ifdef _WINDOWS
 			SetConsoleTextAttribute(hErr,7);
 #endif
-			fputs("  Â©|Â¥Â¼Ã‚Â½Â¥XÂ¡G",stderr);
+			fputs("  ©|¥¼Â½¥X¡G",stderr);
 		} else if(i==2) {
 #ifdef _WINDOWS
 			SetConsoleTextAttribute(hErr,10);
@@ -271,9 +343,9 @@ void BOARD::Display() const {
 int BOARD::MoveGen(MOVLST &lst) const {
 	if(who==-1)return false;
 	lst.num=0;
-	for(POS p=0;p<32;p++) { // è·‘ç›¤é¢ä¸Šæ‰€æœ‰æ ¼å­
+	for(POS p=0;p<32;p++) { 
 		const FIN pf=fin[p];
-		if(GetColor(pf)!=who) // æª¢æŸ¥æ£‹å­æ˜¯ä¸æ˜¯è‡ªå·±çš„
+		if(GetColor(pf)!=who) // check the token color
 			continue;
 		const LVL pl=GetLevel(pf);
 		for(int z=0;z<4;z++) {
@@ -281,7 +353,7 @@ int BOARD::MoveGen(MOVLST &lst) const {
 			if(q==-1)
 				continue;
 			const FIN qf=fin[q];
-			if(pl!=LVL_C){
+			if(pl!=LVL_C){ // «D¬¶ªº¨«¨B
 				if(!ChkEats(pf,qf))
 					continue;
 			}else if(qf!=FIN_E)
@@ -290,13 +362,51 @@ int BOARD::MoveGen(MOVLST &lst) const {
 		}
 		if(pl!=LVL_C)
 			continue;
-		for(int z=0;z<4;z++) {
+		for(int z=0;z<4;z++) {// ¬¶ªº¨«¨B
 			int c=0;
 			for(POS q=p;(q=ADJ[q][z])!=-1;) {
 				const FIN qf=fin[q];
 				if(qf==FIN_E||++c!=2)
 					continue;
-				if(qf!=FIN_X&&GetColor(qf)!=who)lst.mov[lst.num++]=MOV(p,q);
+				if(qf!=FIN_X&&GetColor(qf)!=who)
+					lst.mov[lst.num++]=MOV(p,q);
+				break;
+			}
+		}
+	}
+	return lst.num;
+}
+
+int BOARD::MoveGen_with_Priority(MOVLST &lst) const {
+	if(who==-1)return false;
+	lst.num=0;
+	for(POS p=0;p<32;p++) { 
+		const FIN pf=fin[p];
+		if(GetColor(pf)!=who) // check the token color
+			continue;
+		const LVL pl=GetLevel(pf);
+		for(int z=0;z<4;z++) {
+			const POS q=ADJ[p][z];
+			if(q==-1)
+				continue;
+			const FIN qf=fin[q];
+			if(pl!=LVL_C){ // «D¬¶ªº¨«¨B
+				if(!ChkEats(pf,qf))
+					continue;
+			}else if(qf!=FIN_E)
+				continue;
+			lst.mov[lst.num++]=MOV(p,q);
+		}
+		if(pl!=LVL_C)
+			continue;
+		for(int z=0;z<4;z++) {// ¬¶ªº¨«¨B
+			int c=0;
+			for(POS q=p;(q=ADJ[q][z])!=-1;) {
+				const FIN qf=fin[q];
+				if(qf==FIN_E||++c!=2)
+					continue;
+				if(qf!=FIN_X&&GetColor(qf)!=who)
+					lst.mov[lst.num++]=MOV(p,q);
 				break;
 			}
 		}
@@ -336,21 +446,42 @@ bool BOARD::ChkValid(MOV m) const {
 }
 
 void BOARD::Flip(POS p,FIN f) {
-	if(f==FIN_X) {
+	if(f==FIN_X) {  // ¦pªG¨Sµ¹Â½¥X¨Óªº¤l¡A´N¦Û¤vrandom¤@­Óµ²ªG
 		int i,sum=0;
-		for(i=0;i<14;i++)    sum+=cnt[i];
-		sum=rand()%sum;
-		for(i=0;i<14;i++)if((sum-=cnt[i])<0)break;
+		for(i=0;i<14;i++) // ­pºâ©|¥¼Â½¥Xªº¤l¼Æ
+			sum+=cnt[i];
+		sum = rand()%sum;
+		for(i=0;i<14;i++)
+			if((sum-=cnt[i])<0)
+				break;
 		f=FIN(i);
 	}
-	fin[p]=f;
+	zob_key ^= zob[FIN_X][p];
+	zob_key ^= zob[f][p];
+	
+	// printf("flip = %d\n", f);
+	fin[p] = f;
 	cnt[f]--;
-	if(who==-1)who=GetColor(f);
+	
+	onboard[f]++;
+	dark--;
+
+	if(who==-1)
+		who=GetColor(f);
 	who^=1;
 }
 
 void BOARD::Move(MOV m) {
 	if(m.ed!=m.st) {
+		if(fin[m.ed] != FIN_E){ // if m.ed isn't empty.
+    		onboard[fin[m.ed]]--;
+			remain[fin[m.ed]]--; // remain--
+			
+			zob_key ^= zob[fin[m.ed]][m.ed];
+		}
+		
+		zob_key ^= zob[fin[m.st]][m.st];
+		zob_key ^= zob[fin[m.st]][m.ed];
 		fin[m.ed]=fin[m.st];
 		fin[m.st]=FIN_E;
 		who^=1;
@@ -359,12 +490,63 @@ void BOARD::Move(MOV m) {
 	}
 }
 
+// ¯uªº°õ¦æ¨BµÛ
 void BOARD::DoMove(MOV m, FIN f) {
+	zob_key ^= zob_player;
     if (m.ed!=m.st) {
+    	if(fin[m.ed] != FIN_E){ // if m.ed isn't empty.
+    		onboard[fin[m.ed]]--;
+			remain[fin[m.ed]]--; // remain--
+			
+			// printf("zob[%d][%d] = %u\n", fin[m.ed], m.ed, zob[fin[m.ed]][m.ed]);
+			zob_key ^= zob[fin[m.ed]][m.ed]; // ®³±¼³Q¦Y±o¤l
+		}
+		
+		zob_key ^= zob[fin[m.st]][m.st]; // ®³±¼­n²¾°Êªº¤l
+		zob_key ^= zob[fin[m.st]][m.ed]; // ©ñ¦b¥Ø¼Ğ¦ì¸m
 		fin[m.ed]=fin[m.st];
 		fin[m.st]=FIN_E;
 		who^=1;
     } else {
 		Flip(m.st, f);
+    }
+}
+
+FIN type2fin(int type) {
+    switch(type) {
+	case  1: return FIN_K;
+	case  2: return FIN_G;
+	case  3: return FIN_M;
+	case  4: return FIN_R;
+	case  5: return FIN_N;
+	case  6: return FIN_C;
+	case  7: return FIN_P;
+	case  9: return FIN_k;
+	case 10: return FIN_g;
+	case 11: return FIN_m;
+	case 12: return FIN_r;
+	case 13: return FIN_n;
+	case 14: return FIN_c;
+	case 15: return FIN_p;
+	default: return FIN_E;
+    }
+}
+FIN chess2fin(char chess) {
+    switch (chess) {
+	case 'K': return FIN_K;
+	case 'G': return FIN_G;
+	case 'M': return FIN_M;
+	case 'R': return FIN_R;
+	case 'N': return FIN_N;
+	case 'C': return FIN_C;
+	case 'P': return FIN_P;
+	case 'k': return FIN_k;
+	case 'g': return FIN_g;
+	case 'm': return FIN_m;
+	case 'r': return FIN_r;
+	case 'n': return FIN_n;
+	case 'c': return FIN_c;
+	case 'p': return FIN_p;
+	default: return FIN_E;
     }
 }

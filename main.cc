@@ -1,18 +1,10 @@
-/*****************************************************************************\
- * Theory of Computer Games: Fall 2012
- * Chinese Dark Chess Search Engine Template by You-cheng Syu
- *
- * This file may not be used out of the class unless asking
- * for permission first.
- *
- * Modify by Hung-Jui Chang, December 2013
-\*****************************************************************************/
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm>
 #include "anqi.hh"
 #include "Protocol.h"
 #include "ClientSocket.h"
+
 
 using namespace std;
 
@@ -24,22 +16,28 @@ using namespace std;
 
 const int DEFAULTTIME = 15;
 typedef  int SCORE;
+
 static const SCORE INF=1000001;
 static const SCORE WIN=1000000; 
-SCORE SearchMax(const BOARD&, int, int, SCORE, SCORE);
-SCORE SearchMin(const BOARD&, int, int, SCORE, SCORE);
-SCORE NegaScoutMax(const BOARD&, SCORE, SCORE, int, int);
-SCORE NegaScoutMin(const BOARD&, SCORE, SCORE, int, int);
 
+int evalBoard(const BOARD& B);
+SCORE NegaScout(const BOARD&, SCORE, SCORE, int, int);
+
+unsigned int zob[15][32];
+unsigned int zob_player;
+static HASH_ENTRY* hash_table;
+static unsigned int hash_max_index;
+void initZobrist();
+void printZob();
 
 #ifdef _WINDOWS
-DWORD Tick;     // é–‹å§‹æ™‚åˆ»
-int   TimeOut;  // æ™‚é™
+DWORD Tick;     // ¶}©l®É¨è
+int   TimeOut;  // ®É­­
 #else
-clock_t Tick;     // é–‹å§‹æ™‚åˆ»
-clock_t TimeOut;  // æ™‚é™
+clock_t Tick;     // ¶}©l®É¨è
+clock_t TimeOut;  // ®É­­
 #endif
-MOV   BestMove; // æœå‡ºä¾†çš„æœ€ä½³è‘—æ³•
+MOV   BestMove; // ·j¥X¨Óªº³Ì¨ÎµÛªk
 
 bool TimesUp() {
 #ifdef _WINDOWS
@@ -49,156 +47,88 @@ bool TimesUp() {
 #endif
 }
 
+SCORE NegaScout(const BOARD &B, SCORE alpha, SCORE beta, int depth, int cut){
+	// check hash table
+	//printf("zob_key = %u, index = %u\n", B.zob_key, hash_max_index);
+	unsigned int hash_key = B.zob_key % hash_max_index;
+	//printf("hash_key = %u\n", hash_key);
+	HASH_ENTRY* entry = hash_table + hash_key;
+	bool hash_hit = false;
 
 
-// é‡é‡ä¸é‡è³ªçš„å¯©å±€å‡½æ•¸
-SCORE Eval(const BOARD &B) {
-	int cnt[2]={0,0};
-	for(POS p=0;p<32;p++){
-		const CLR c = GetColor(B.fin[p]);
-		if(c != -1)
-			cnt[c]++;
-	}
-	for(int i=0; i<14; i++)
-		cnt[GetColor(FIN(i))] += B.cnt[i];
-	return cnt[B.who]-cnt[B.who^1];
-}
+	SCORE m = -INF; // the current lower bound; fail soft
+	SCORE n = beta; // the current upper bound
 
-enum POW{
-	POW_K = 7,
-	POW_G = 8,
-	POW_M = 5,
-	POW_R = 4,
-	POW_N = 3,
-	POW_C = 9,
-	POW_P = 1
-};
-
-
-SCORE evalPower(const BOARD &B){
-	int cnt[2] = {0, 0};
-}
-
-
-// dep=ç¾åœ¨åœ¨ç¬¬å¹¾å±¤
-// cut=é‚„è¦å†èµ°å¹¾å±¤
-SCORE SearchMax(const BOARD &B,int dep,int cut, SCORE alpha, SCORE beta) {
-	if(B.ChkLose())return -WIN;
-
-	MOVLST lst;
-	// çµ‚æ­¢æ¢ä»¶ (1)åˆ°æŒ‡å®šå±¤æ•¸ (2)æ™‚é–“åˆ° (3)æ²’æœ‰å¯èµ°æ­¥
-	if(cut==0||TimesUp()||B.MoveGen(lst)==0)
-		return +Eval(B);
-
-	//SCORE ret=-INF;
-	SCORE ret = alpha;
-	for(int i=0;i<lst.num;i++) {
-		BOARD N(B);
-		N.Move(lst.mov[i]);
-		const SCORE tmp=SearchMin(N,dep+1,cut-1, ret, beta);
-		if(tmp>ret){
-			ret=tmp;
-			if(dep==0)
-				BestMove=lst.mov[i];
+	// check hash table
+	if(entry->used == true){
+		if(entry->zob_key == B.zob_key){
+			if(entry->exact){
+				if(entry->player != B.who && 
+					entry->best_move.st != entry->best_move.ed){
+					BestMove = entry->best_move;
+					//printf("hash return move (%d, %d)\n", BestMove.st, BestMove.ed);
+					return entry->value;
+				}
+			}else{
+				hash_hit = true;
+				m = entry->value;
+			}
+		}else if(depth < entry->depth){
+			hash_hit =true;
+			entry->zob_key = B.zob_key;
+			entry->depth = depth;
+			entry->player = B.who;
 		}
-		if(ret >= beta) // cut little brother
-			return ret;
+	}else{
+		hash_hit = true;
+		entry->used = true;
+		entry->zob_key = B.zob_key;
+		entry->depth = depth;
+		entry->player = B.who;
 	}
-	return ret;
-}
 
-SCORE SearchMin(const BOARD &B, int dep, int cut, SCORE alpha, SCORE beta) {
-	if(B.ChkLose())return +WIN;
+	if(B.ChkLose()) return -WIN; // heuristic condition
+							     // return if lose
 
 	MOVLST lst;
-	if(cut==0||TimesUp()||B.MoveGen(lst)==0)
-		return -Eval(B);
-
-	//SCORE ret=+INF;
-	SCORE ret = beta;
-	for(int i=0;i<lst.num;i++) {
-		BOARD N(B);
-		N.Move(lst.mov[i]);
-		const SCORE tmp=SearchMax(N, dep+1, cut-1, alpha, ret);
-		if(tmp<ret){
-			ret=tmp;
-		}
-		if(ret <= alpha) // cut little brother
-			return ret;
+	// ²×¤î±ø¥ó (1)¨ì«ü©w¼h¼Æ (2)®É¶¡¨ì (3)¨S¦³¥i¨«¨B
+	if(cut==0||TimesUp()||B.MoveGen(lst)==0){
+		int value = +evalBoard(B);
+		if(depth%2 == 0)
+			return +value;
+		else
+			return -value;
 	}
-	return ret;
-}
 
-SCORE NegaScoutMax(const BOARD &B, SCORE alpha, SCORE beta, int depth, int cut){
-	if(B.ChkLose())return -WIN;
-
-	MOVLST lst;
-	// çµ‚æ­¢æ¢ä»¶ (1)åˆ°æŒ‡å®šå±¤æ•¸ (2)æ™‚é–“åˆ° (3)æ²’æœ‰å¯èµ°æ­¥
-	if(cut==0||TimesUp()||B.MoveGen(lst)==0)
-		return +Eval(B);
-
-	SCORE ret = -INF; // ret is the current best lower bound; fail soft
-	
-	BOARD FB(B);
-	FB.Move(lst.mov[0]);
-	ret = max(ret, NegaScoutMin(FB, alpha, beta, depth+1, cut-1)); // get first branch
-	if(ret >= beta) // beta cut off
-		return ret;
-	
-	for(int i=1; i<lst.num; i++){
+	for(int i=0; i<lst.num; i++){
 		BOARD N(B);
 		N.Move(lst.mov[i]);
-		 
-		const SCORE tmp = NegaScoutMin(N, ret, ret+1, depth+1, cut-1); // null window search
-		if(tmp>ret){ // fail-high
-			if(cut <=3 || tmp >= beta)
-				ret = tmp;
+		
+		const SCORE t = -NegaScout(N, -n, -max(alpha, m), depth+1, cut-1);
+		if(t > m)
+			if(n == beta || cut <3 || t >= beta)
+				m = t;
 			else
-				ret = NegaScoutMin(N, tmp, beta, depth+1, depth-1); // re-search
-			ret = tmp;
-			if(depth == 0)
-				BestMove=lst.mov[i];
+				m = -NegaScout(N, -beta, -t, depth+1, cut-1); // re-search
+			if(depth==0){ // change the best move
+				BestMove = lst.mov[i];
+				printf("");
+			}
+		if(m >= beta){ // cut off
+			if(hash_hit){
+				entry->value = m;
+				entry->best_move = lst.mov[i];
+			}
+			return m;
 		}
-		if(ret >= beta) // beta cut off
-			return ret;
+		n = max(alpha, m) + 1; // setup a null window
 	}
-	return ret;
-}
-
-SCORE NegaScoutMin(const BOARD &B, SCORE alpha, SCORE beta, int depth, int cut){
-	if(B.ChkLose())return -WIN;
-
-	MOVLST lst;
-	// çµ‚æ­¢æ¢ä»¶ (1)åˆ°æŒ‡å®šå±¤æ•¸ (2)æ™‚é–“åˆ° (3)æ²’æœ‰å¯èµ°æ­¥
-	if(cut==0||TimesUp()||B.MoveGen(lst)==0)
-		return +Eval(B);
-
-	SCORE ret = INF; // ret is the current best lower bound; fail soft
-	
-	BOARD FB(B);
-	FB.Move(lst.mov[0]);
-	ret = min(ret, NegaScoutMax(FB, alpha, beta, depth+1, cut-1)); // get first branch
-	if(ret <= beta) // beta cut off
-		return ret;
-	
-	for(int i=1; i<lst.num; i++){
-		BOARD N(B);
-		N.Move(lst.mov[i]);
-		 
-		const SCORE tmp = NegaScoutMax(N, ret-1, ret, depth+1, cut-1); // null window search
-		if(tmp<ret){ // fail-high
-			if(cut <=3 || tmp <= beta)
-				ret = tmp;
-			else
-				ret = NegaScoutMax(N, alpha, tmp, depth+1, depth-1); // re-search
-			ret = tmp;
-			if(depth == 0)
-				BestMove=lst.mov[i];
-		}
-		if(ret <= beta) // beta cut off
-			return ret;
+	if(hash_hit){
+		entry->value = m;
+		entry->exact = true;
 	}
-	return ret;
+
+	return m;
 }
 
 MOV Play(const BOARD &B) {
@@ -211,67 +141,31 @@ MOV Play(const BOARD &B) {
 #endif
 	POS p; int c=0;
 
-	// æ–°éŠæˆ² éš¨æ©Ÿç¿»å­
+	// new game flip random place
 	if(B.who==-1){
 		p=rand()%32;
-		printf("%d\n",p);
 		return MOV(p,p);
 	}
 
-	// è‹¥æœå‡ºä¾†çš„çµæœæœƒæ¯”è¼ƒå¥½ å°±ç”¨æœå‡ºä¾†çš„èµ°æ³•
-	if(NegaScoutMax(B, 0, 20, -INF, INF) > Eval(B))
+	// ­Y·j¥X¨Óªºµ²ªG·|¤ñ¸û¦n¡A´N¥Î·j¥X¨Óªº¨«ªk
+	int scout = NegaScout(B, -INF, INF, 0, 20);
+	int rightnow = evalBoard(B);
+	//printf("scout = %d, rightnow = %d\n", scout, rightnow);
+	//if(NegaScout(B, -INF, INF, 0, 20) > B.evalBoard()){
+	if(scout > rightnow){
+		//printf("bsm.st = %d, bsm.ed = %d\n", BestMove.st, BestMove.ed);
 		return BestMove;
+	}
 
-	// å¦å‰‡éš¨ä¾¿ç¿»ä¸€å€‹åœ°æ–¹ ä½†å°å¿ƒå¯èƒ½å·²ç¶“æ²’åœ°æ–¹ç¿»äº†
-	for(p=0;p<32;p++)
-		if(B.fin[p]==FIN_X)
-			c++;
-	if(c==0)
+	// §_«hÀH«KÂ½¤@­Ó¦a¤è¡A¦ı¤p¤ß¥i¯à¤w¸g¨S¦a¤èÂ½¤F
+	if(B.dark == 0) // ¨S·t¤l¤F
 		return BestMove;
-	c=rand()%c;
-	for(p=0;p<32;p++)
-		if(B.fin[p]==FIN_X&&--c<0)
+	c=rand()%B.dark;
+	for(p=0; p<32; p++)
+		if(B.fin[p]==FIN_X && --c<0)
 			break;
-	return MOV(p,p);
-}
 
-FIN type2fin(int type) {
-    switch(type) {
-	case  1: return FIN_K;
-	case  2: return FIN_G;
-	case  3: return FIN_M;
-	case  4: return FIN_R;
-	case  5: return FIN_N;
-	case  6: return FIN_C;
-	case  7: return FIN_P;
-	case  9: return FIN_k;
-	case 10: return FIN_g;
-	case 11: return FIN_m;
-	case 12: return FIN_r;
-	case 13: return FIN_n;
-	case 14: return FIN_c;
-	case 15: return FIN_p;
-	default: return FIN_E;
-    }
-}
-FIN chess2fin(char chess) {
-    switch (chess) {
-	case 'K': return FIN_K;
-	case 'G': return FIN_G;
-	case 'M': return FIN_M;
-	case 'R': return FIN_R;
-	case 'N': return FIN_N;
-	case 'C': return FIN_C;
-	case 'P': return FIN_P;
-	case 'k': return FIN_k;
-	case 'g': return FIN_g;
-	case 'm': return FIN_m;
-	case 'r': return FIN_r;
-	case 'n': return FIN_n;
-	case 'c': return FIN_c;
-	case 'p': return FIN_p;
-	default: return FIN_E;
-    }
+	return MOV(p,p);
 }
 
 int main(int argc, char* argv[]) {
@@ -281,7 +175,11 @@ int main(int argc, char* argv[]) {
 #else
 	srand(Tick=time(NULL));
 #endif
-
+	
+	// build zobrist table
+	initZobrist();
+	// printZob();
+	
 	BOARD B;
 	if (argc!=3) {
 	    TimeOut=(B.LoadGame("board.txt")-3)*1000;
@@ -289,6 +187,7 @@ int main(int argc, char* argv[]) {
 			Output(Play(B));
 	    return 0;
 	}
+
 	Protocol *protocol;
 	protocol = new Protocol();
 	protocol->init_protocol(argv[1],atoi(argv[2]));
@@ -305,60 +204,181 @@ int main(int argc, char* argv[]) {
 
 	TimeOut = (DEFAULTTIME-3)*1000;
 
+	// init board with char
 	B.Init(iCurrentPosition, iPieceCount, (color==2)?(-1):(int)color);
 
 	MOV m;
-	if(turn) // è‡ªå·±å…ˆæ‰‹
-	{
+	if(turn){ // ¦Û¤v¥ı¤â
 	    m = Play(B);
 	    sprintf(src, "%c%c",(m.st%4)+'a', m.st/4+'1');
 	    sprintf(dst, "%c%c",(m.ed%4)+'a', m.ed/4+'1');
 	    protocol->send(src, dst);
 	    protocol->recv(mov, remain_time);
-	    if( color == 2)
-		color = protocol->get_color(mov);
+	    if(color == 2) color = protocol->get_color(mov);
 	    B.who = color;
-	    B.DoMove(m, chess2fin(mov[3]));
-	    protocol->recv(mov, remain_time);
+	    B.self = B.who;
+		B.DoMove(m, chess2fin(mov[3]));
+		// B.Display();
+	    protocol->recv(mov, remain_time); // µ¥¹ï¤è¤U
 	    m.st = mov[0] - 'a' + (mov[1] - '1')*4;
 	    m.ed = (mov[2]=='(')?m.st:(mov[3] - 'a' + (mov[4] - '1')*4);
-	    B.DoMove(m, chess2fin(mov[3]));
-	}
-	else // å°æ–¹å…ˆæ‰‹
-	{
+		B.DoMove(m, chess2fin(mov[3]));
+	}else{ // µ¥¹ï¤è¥ı¤â
 	    protocol->recv(mov, remain_time);
-	    if( color == 2)
-	    {
-		color = protocol->get_color(mov);
-		B.who = color;
-	    }
-	    else {
-		B.who = color;
-		B.who^=1;
+	    if(color == 2){
+			color = protocol->get_color(mov);
+			B.who = color;
+	    }else {
+			B.who = color;
+			B.who^=1;
 	    }
 	    m.st = mov[0] - 'a' + (mov[1] - '1')*4;
 	    m.ed = (mov[2]=='(')?m.st:(mov[3] - 'a' + (mov[4] - '1')*4);
+		B.self = B.who^1;
 	    B.DoMove(m, chess2fin(mov[3]));
 	}
 	B.Display();
-	while(1)
-	{
-	    m = Play(B);
-	    sprintf(src, "%c%c",(m.st%4)+'a', m.st/4+'1');
+	
+	while(1){
+	    m = Play(B); // ºâ¨BµÛ
+		sprintf(src, "%c%c",(m.st%4)+'a', m.st/4+'1');
 	    sprintf(dst, "%c%c",(m.ed%4)+'a', m.ed/4+'1');
-	    protocol->send(src, dst);
-	    protocol->recv(mov, remain_time);
+	    protocol->send(src, dst); // µ¹server¬İ
+	    protocol->recv(mov, remain_time); // server¦^¶Çµ²ªG
 	    m.st = mov[0] - 'a' + (mov[1] - '1')*4;
 	    m.ed = (mov[2]=='(')?m.st:(mov[3] - 'a' + (mov[4] - '1')*4);
-	    B.DoMove(m, chess2fin(mov[3]));
-	    B.Display();
+	
+	    B.DoMove(m, chess2fin(mov[3])); // ¦b¦Û¤vªº½L­±¤W°õ¦æ¨BµÛ
+	    B.Display(); // ¨q¥X¨Ó
 
-	    protocol->recv(mov, remain_time);
+	    protocol->recv(mov, remain_time); // µ¥¹ï­±ªº¨BµÛ
 	    m.st = mov[0] - 'a' + (mov[1] - '1')*4;
 	    m.ed = (mov[2]=='(')?m.st:(mov[3] - 'a' + (mov[4] - '1')*4);
-	    B.DoMove(m, chess2fin(mov[3]));
+		B.DoMove(m, chess2fin(mov[3]));
 	    B.Display();
 	}
-
+	
 	return 0;
+}
+
+// ¼f§½¨ç¼Æ
+int evalBoard(const BOARD& B){
+	int power[14];
+	for(int i=0; i<14; i++){
+		power[i] = 51;
+		switch(i){
+		case FIN_K:
+			power[i] += B.remain[7] + 4*(B.remain[8] + 
+				B.remain[9] + B.remain[10] + B.remain[11] + B.remain[12]);
+			break;
+		case FIN_G:
+			power[i] += B.remain[8] + 4*(B.remain[9] + 
+				B.remain[10] + B.remain[11] + B.remain[12] + B.remain[13]);
+			break;
+		case FIN_M:
+			power[i] += B.remain[9] + 4*(B.remain[10] + 
+				B.remain[11] + B.remain[12] + B.remain[13]);
+			break;
+		case FIN_R:
+			power[i] += B.remain[10] + 4*(B.remain[11] + 
+				B.remain[12] + B.remain[13]);
+			break;
+		case FIN_N:
+			power[i] += B.remain[11] + 4*(B.remain[12] + B.remain[13]);
+			break;
+		case FIN_C:
+			power[i] += 4*(B.remain[0] + B.remain[1] + B.remain[2] 
+				+ B.remain[3] + B.remain[4] + B.remain[5] + B.remain[6]) 
+				+ (B.remain[7] + B.remain[8] + B.remain[9] 
+				+ B.remain[10] + B.remain[11] + B.remain[12] + B.remain[13]) 
+				- 1;
+			break;
+		case FIN_P:
+			power[i] += 4*B.remain[7] + B.remain[13];
+			break;
+		case FIN_k:
+			power[i] += B.remain[0] + 4*(B.remain[1] + 
+				B.remain[2] + B.remain[3] + B.remain[4] + B.remain[5]);
+			break;
+		case FIN_g:
+			power[i] += B.remain[1] + 4*(B.remain[2] + 
+				B.remain[3] + B.remain[4] + B.remain[5] + B.remain[6]);
+			break;
+		case FIN_m:
+			power[i] += B.remain[2] + 4*(B.remain[3] + 
+				B.remain[4] + B.remain[5] + B.remain[6]);
+			break;
+		case FIN_r:
+			power[i] += B.remain[3] + 4*(B.remain[4] + B.remain[5] + B.remain[6]);
+			break;
+		case FIN_n:
+			power[i] += B.remain[4] + 4*(B.remain[5] + B.remain[6]);
+			break;
+		case FIN_c:
+			power[i] += 4*(B.remain[7] + B.remain[8] + B.remain[9] 
+				+ B.remain[10] + B.remain[11] + B.remain[12] + B.remain[13]) 
+				+ (B.remain[0] + B.remain[1] + B.remain[2] 
+				+ B.remain[3] + B.remain[4] + B.remain[5] + B.remain[6]) 
+				- 1;
+			break;
+		case FIN_p:
+			power[i] += 4*B.remain[0] + B.remain[6];
+			break;
+		}
+	}
+
+	int red_power = 0;
+	int black_power = 0;
+
+	for(int i=0; i<7; i++){
+		//printf("%d on = %d, power = %d, remain = %d\n", i, B.onboard[i], power[i], B.remain[i]);
+		red_power += B.onboard[i]*power[i];
+	}
+	for(int i=7; i<14; i++){
+		//printf("%d on = %d, power = %d, remain = %d\n", i, B.onboard[i], power[i], B.remain[i]);
+		black_power += B.onboard[i]*power[i];
+	}
+	//printf("red_power = %d, black_power = %d\n", red_power, black_power);
+	
+	if(B.self == 0)
+		return red_power - black_power;
+	else if(B.self == 1)
+		return black_power - red_power;
+}
+
+void initZobrist(){
+    // unsigned int zob[15][32];
+    unsigned int random_max = pow(2, 32)-1;
+    random_device seed;
+    default_random_engine e1(seed());
+    uniform_int_distribution<unsigned int> dist(0, random_max);
+    
+    zob_player = dist(e1);
+    for(int i=0; i<15; i++)
+        for(int j=0; j<32; j++){
+            unsigned int r = dist(e1);
+            zob[i][j] = r;
+        }
+    
+    hash_max_index = pow(2, 20);
+    
+    hash_table = (HASH_ENTRY*)malloc(hash_max_index*sizeof(HASH_ENTRY));
+    for(int i=0; i<hash_max_index; i++){
+        hash_table[i].used = false;
+        hash_table[i].exact = false;
+    }
+}
+
+void printZob(){
+	printf("create index = %u\n", hash_max_index);
+    printf("zob_player = %u\n", zob_player);
+    for(int i=14; i<15; i++)
+        for(int j=0; j<32; j++){
+            printf("%d %d %u\n", i, j, zob[i][j]);
+        }
+
+    for(int i=0; i<100; i++){
+		HASH_ENTRY e = hash_table[i];
+    	printf("%d exact = %d, move = (%d, %d)\n", i, e.exact, e.best_move.st, e.best_move.ed);
+    }
 }

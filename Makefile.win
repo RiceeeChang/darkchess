@@ -9,7 +9,7 @@ LINKOBJ  = anqi.o ClientSocket.o main.o Protocol.o
 LIBS     = -L"D:/DevCppPortable/MinGW64/lib" -L"D:/DevCppPortable/MinGW64/x86_64-w64-mingw32/lib" -static-libgcc D:/DevCppPortable/MinGW64/x86_64-w64-mingw32/lib/libwsock32.a -g3
 INCS     = -I"D:/DevCppPortable/MinGW64/include" -I"D:/DevCppPortable/MinGW64/x86_64-w64-mingw32/include" -I"D:/DevCppPortable/MinGW64/lib/gcc/x86_64-w64-mingw32/4.9.2/include"
 CXXINCS  = -I"D:/DevCppPortable/MinGW64/include" -I"D:/DevCppPortable/MinGW64/x86_64-w64-mingw32/include" -I"D:/DevCppPortable/MinGW64/lib/gcc/x86_64-w64-mingw32/4.9.2/include" -I"D:/DevCppPortable/MinGW64/lib/gcc/x86_64-w64-mingw32/4.9.2/include/c++"
-BIN      = search.exe
+BIN      = ../CDC_package_win7_3.0/CDC_interface/CreateRoom/Search/search.exe
 CXXFLAGS = $(CXXINCS) -std=gnu++11 -g3
 CFLAGS   = $(INCS) -std=gnu++11 -g3
 RM       = rm.exe -f
